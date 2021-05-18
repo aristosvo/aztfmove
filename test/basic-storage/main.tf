@@ -30,8 +30,8 @@ variable "tags" {
 }
 
 resource "random_password" "sa-postfix" {
-  length           = 8
-  special          = false
+  length  = 8
+  special = false
 }
 
 resource "azurerm_resource_group" "input-rg" {
@@ -47,12 +47,12 @@ resource "azurerm_resource_group" "output-rg" {
 }
 
 resource "azurerm_storage_account" "sa-move" {
-  name                      = "samove${lower(random_password.sa-postfix.result)}"
-  resource_group_name       = azurerm_resource_group.input-rg.name
-  location                  = azurerm_resource_group.input-rg.location
-  account_kind              = "StorageV2"
-  account_tier              = "Standard"
-  account_replication_type  = "LRS"
+  name                     = "samove${lower(random_password.sa-postfix.result)}"
+  resource_group_name      = azurerm_resource_group.input-rg.name
+  location                 = azurerm_resource_group.input-rg.location
+  account_kind             = "StorageV2"
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
 
   tags = var.tags
 }
