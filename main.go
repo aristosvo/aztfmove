@@ -60,7 +60,7 @@ var resourcesNotSupportedInAzure = []string{
 }
 
 func main() {
-	var resourceFlag = flag.String("resource", "*", "Terraform resource to be moved. Default value is `*`.")
+	var resourceFlag = flag.String("resource", "*", "Terraform resource to be moved.")
 	var moduleFlag = flag.String("module", "", "Terraform module to be moved. Optional.")
 	var resourceGroupFlag = flag.String("resource-group", "", "Azure resource group to be moved. Optional.")
 	var subscriptionFlag = flag.String("subscription-id", "", "subscription where resources are currently. `ARM_SUBSCRIPTION_ID` has the same functionality. Optional.")
