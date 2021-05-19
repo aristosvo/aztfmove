@@ -31,3 +31,5 @@ For examples and/or tests, see [test](https://github.com/aristosvo/aztfmove/tree
 - [ ] Use [terratest](https://terratest.gruntwork.io) or similar for AccTests
 - [ ] Rework the code in multiple packages instead of one file
 - [ ] Unit tests
+- [ ] Add an `-exclude` flag
+- [ ] Let the user verify which resources are touched before doing the move or dry-run 
