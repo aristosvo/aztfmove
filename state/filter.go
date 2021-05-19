@@ -71,7 +71,7 @@ func (tfstate TerraformState) Filter(resourceFilter, moduleFilter, resourceGroup
 		}
 
 		// second filter: module
-		if (moduleFilter != "" && moduleFilter != "*") && r.Module == moduleFilter {
+		if (moduleFilter != "" && moduleFilter != "*") && r.Module != moduleFilter {
 			continue
 		}
 
@@ -87,7 +87,7 @@ func (tfstate TerraformState) Filter(resourceFilter, moduleFilter, resourceGroup
 				return nil, "", err
 			}
 
-			instanceResourceGroup := instance.ResourceGroup(sourceSubscriptionID)
+			instanceResourceGroup := instance.ResourceGroup()
 			if instanceResourceGroup == "" {
 				err = fmt.Errorf("resource group is not found for %s. Please file a PR on https://github.com/aristosvo/aztfmove and mention this ID: %s", instance.ID(r), instance.ID(r))
 				return nil, "", err

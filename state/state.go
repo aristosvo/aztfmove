@@ -47,26 +47,26 @@ func (i Instance) SubscriptionID() string {
 	}
 
 	// attributes `key_vault_id` or `resource_manager_id` are used to find subscription if ID doesn't contain these
-	if i.Attributes.ResourceManagerID != "" {
+	if i.Attributes.ResourceManagerID != "" && strings.HasPrefix(i.Attributes.ResourceManagerID, "/subscriptions/") {
 		return strings.Split(i.Attributes.ResourceManagerID, "/")[2]
 	}
-	if i.Attributes.KeyVaultID != "" {
+	if i.Attributes.KeyVaultID != "" && strings.HasPrefix(i.Attributes.KeyVaultID, "/subscriptions/") {
 		return strings.Split(i.Attributes.KeyVaultID, "/")[2]
 	}
 
 	return ""
 }
 
-func (i Instance) ResourceGroup(subscriptionId string) string {
-	if strings.HasPrefix(i.Attributes.ID, fmt.Sprintf("/subscriptions/%s/resourceGroups/", subscriptionId)) {
+func (i Instance) ResourceGroup() string {
+	if strings.HasPrefix(i.Attributes.ID, fmt.Sprintf("/subscriptions/%s/resourceGroups/", i.SubscriptionID())) {
 		return strings.Split(i.Attributes.ID, "/")[4]
 	}
 
 	// attributes `key_vault_id` or `resource_manager_id` are used to find resource group if ID doesn't contain these
-	if i.Attributes.ResourceManagerID != "" {
+	if i.Attributes.ResourceManagerID != "" && strings.HasPrefix(i.Attributes.ResourceManagerID, fmt.Sprintf("/subscriptions/%s/resourceGroups/", i.SubscriptionID())) {
 		return strings.Split(i.Attributes.ResourceManagerID, "/")[4]
 	}
-	if i.Attributes.KeyVaultID != "" {
+	if i.Attributes.KeyVaultID != "" && strings.HasPrefix(i.Attributes.KeyVaultID, fmt.Sprintf("/subscriptions/%s/resourceGroups/", i.SubscriptionID())) {
 		return strings.Split(i.Attributes.KeyVaultID, "/")[4]
 	}
 
