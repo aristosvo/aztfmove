@@ -27,9 +27,57 @@ type Resource struct {
 	Instances []Instance
 }
 
+func (r Resource) ID() string {
+	modulePrefix := ""
+	if r.Module != "" {
+		modulePrefix = fmt.Sprintf("%s.", r.Module)
+	}
+	return fmt.Sprintf("%s%s.%s", modulePrefix, r.Type, r.Name)
+}
+
 type Instance struct {
 	IndexKey   interface{} `json:"index_key,omitempty"`
 	Attributes Attributes
+}
+
+func (i Instance) ID(r Resource) string {
+	index := ""
+	if i.IndexKey != nil {
+		index = fmt.Sprintf("[\"%v\"]", i.IndexKey)
+	}
+	return fmt.Sprintf("%s%s", r.ID(), index)
+}
+
+func (i Instance) SubscriptionID() string {
+	if strings.HasPrefix(i.Attributes.ID, "/subscriptions/") {
+		return strings.Split(i.Attributes.ID, "/")[2]
+	}
+
+	// attributes `key_vault_id` or `resource_manager_id` are used to find subscription if ID doesn't contain these
+	if i.Attributes.ResourceManagerID != "" {
+		return strings.Split(i.Attributes.ResourceManagerID, "/")[2]
+	}
+	if i.Attributes.KeyVaultID != "" {
+		return strings.Split(i.Attributes.KeyVaultID, "/")[2]
+	}
+
+	return ""
+}
+
+func (i Instance) ResourceGroup(subscriptionId string) string {
+	if strings.HasPrefix(i.Attributes.ID, fmt.Sprintf("/subscriptions/%s/resourceGroups/", subscriptionId)) {
+		return strings.Split(i.Attributes.ID, "/")[4]
+	}
+
+	// attributes `key_vault_id` or `resource_manager_id` are used to find resource group if ID doesn't contain these
+	if i.Attributes.ResourceManagerID != "" {
+		return strings.Split(i.Attributes.ResourceManagerID, "/")[4]
+	}
+	if i.Attributes.KeyVaultID != "" {
+		return strings.Split(i.Attributes.KeyVaultID, "/")[4]
+	}
+
+	return ""
 }
 
 type Attributes struct {
@@ -43,6 +91,7 @@ type ResourceInstanceSummary struct {
 	TerraformID   string
 	FutureAzureID string
 	MoveOnAzure   bool
+	NotSupported  bool
 }
 
 var resourcesOnlyMovedInTF = []string{
@@ -60,12 +109,16 @@ var resourcesNotSupportedInAzure = []string{
 }
 
 func main() {
-	var resourceFlag = flag.String("resource", "*", "Terraform resource to be moved.")
-	var moduleFlag = flag.String("module", "", "Terraform module to be moved. Optional.")
-	var resourceGroupFlag = flag.String("resource-group", "", "Azure resource group to be moved. Optional.")
-	var subscriptionFlag = flag.String("subscription-id", "", "subscription where resources are currently. `ARM_SUBSCRIPTION_ID` has the same functionality. Optional.")
-	var targetResourceGroupFlag = flag.String("target-resource-group", "", "Azure resource group name where resources are moved. Required.")
-	var targetSubscriptionFlag = flag.String("target-subscription-id", "", "Azure subscription ID where resources are moved. If not specified resources are moved within the subscription. Optional.")
+	var resourceFlag = flag.String("resource", "*", "Terraform resource to be moved. For example \"module.storage.azurerm_storage_account.example\".")
+	var moduleFlag = flag.String("module", "*", "Terraform module to be moved. For example \"module.storage\".")
+	var resourceGroupFlag = flag.String("resource-group", "*", "Azure resource group to be moved. For example \"example-source-resource-group\".")
+	var subscriptionFlag = flag.String("subscription-id", os.Getenv("ARM_SUBSCRIPTION_ID"), "subscription where resources are currently. Environment variable \"ARM_SUBSCRIPTION_ID\" has the same functionality.")
+	var targetResourceGroupFlag = flag.String("target-resource-group", "", "Azure resource group name where resources are moved. For example \"example-target-resource-group\". (required)")
+	var targetSubscriptionFlag = flag.String("target-subscription-id", os.Getenv("ARM_SUBSCRIPTION_ID"), "Azure subscription ID where resources are moved. If not specified resources are moved within the subscription.")
+
+	// Future functionality:
+	// var excludeResourcesFlag = flag.String("exclude-resources", "-", "Terraform resources to be excluded from moving. For example \"module.storage.azurerm_storage_account.example,module.storage.azurerm_storage_account.example\".")
+	// var autoApproveFlag = flag.String("auto-approve", "false", "aztfmove first shows which resources are selected for a move both in Azure and in Terraform and requires approval. If you don't want to approve, use this flag.")
 	flag.Parse()
 
 	if *targetResourceGroupFlag == "" {
@@ -74,118 +127,77 @@ func main() {
 	}
 
 	subscriptionId := ""
-	if os.Getenv("ARM_SUBSCRIPTION_ID") != "" {
-		subscriptionId = os.Getenv("ARM_SUBSCRIPTION_ID")
-	} else if *subscriptionFlag != "" {
+	if *subscriptionFlag != "" {
 		subscriptionId = *subscriptionFlag
 	} else {
 		fmt.Println("[ERROR] No resource subscription known, specify environment variable ARM_SUBSCRIPTION_ID or flag -subscription-id")
 		os.Exit(1)
 	}
 
-	if *targetSubscriptionFlag == "" {
-		fmt.Println("No target subscription specified, move will be within the same subscription:")
+	if *targetSubscriptionFlag == "" || *targetSubscriptionFlag == *subscriptionFlag {
+		fmt.Println("No unique \"-target-subscription-id\" specified, move will be within the same subscription:")
 		fmt.Printf(" %s -> %s \n", subscriptionId, subscriptionId)
 	} else {
 		fmt.Println("Target subscription specified, move will be to a different subscription:")
 		fmt.Printf(" %s -> %s \n", subscriptionId, *targetSubscriptionFlag)
 	}
 
-	cmd := exec.Command("terraform", "state", "pull")
-	var out bytes.Buffer
-	cmd.Stdout = &out
-
-	err := cmd.Run()
+	tfstate, err := pullTerraformState()
 	if err != nil {
 		fmt.Printf("[ERROR] Terraform state is not found. Try `terraform init`.")
 		os.Exit(1)
 	}
 
-	var data TerraformState
-	json.Unmarshal(out.Bytes(), &data)
-
-	fmt.Printf("\nResources selected:\n")
-	var resourceInstancesContainer []ResourceInstanceSummary
+	var resourceInstances []ResourceInstanceSummary
 	resourceGroup := *resourceGroupFlag
-	for _, r := range data.Resources {
+	for _, r := range tfstate.Resources {
 		if !strings.Contains(r.Provider, "provider[\"registry.terraform.io/hashicorp/azurerm\"]") {
 			continue
 		}
-		modulePrefix := ""
-		if r.Module != "" {
-			modulePrefix = fmt.Sprintf("%s.", r.Module)
-		}
-		terraformResourceID := fmt.Sprintf("%s%s.%s", modulePrefix, r.Type, r.Name)
 
 		// first filter: resource
-		if (*resourceFlag != "" && *resourceFlag != "*") && terraformResourceID != *resourceFlag {
+		if (*resourceFlag != "" && *resourceFlag != "*") && r.ID() != *resourceFlag {
 			continue
 		}
 
 		// second filter: module
-		if *moduleFlag != "" && r.Module == *moduleFlag {
-			continue
-		}
-
-		if contains(resourcesNotSupportedInAzure, r.Type) {
+		if (*moduleFlag != "" && *moduleFlag != "*") && r.Module == *moduleFlag {
 			continue
 		}
 
 		for _, instance := range r.Instances {
-			index := ""
-			if instance.IndexKey != nil {
-				index = fmt.Sprintf("[\"%v\"]", instance.IndexKey)
+			if instance.SubscriptionID() == "" {
+				fmt.Printf("[ERROR] Subscription ID is not found for %s\n", instance.ID(r))
+				fmt.Printf("  Please file a PR on https://github.com/aristosvo/aztfmove and mention this ID: %s\n", instance.ID(r))
+				os.Exit(1)
 			}
-			terraformInstanceID := fmt.Sprintf("%s%s", terraformResourceID, index)
 
 			// Only one subscription is supported at the same time
-			// attributes `key_vault_id` or `resource_manager_id` are used to find resource group and possibly subscription if ID doesn't contain these
-			instanceSubscriptionId := ""
-			if strings.HasPrefix(instance.Attributes.ID, "/subscriptions/") {
-				instanceSubscriptionId = strings.Split(instance.Attributes.ID, "/")[2]
-			} else if instance.Attributes.ResourceManagerID != "" {
-				instanceSubscriptionId = strings.Split(instance.Attributes.ResourceManagerID, "/")[2]
-			} else if instance.Attributes.KeyVaultID != "" {
-				instanceSubscriptionId = strings.Split(instance.Attributes.KeyVaultID, "/")[2]
-			} else {
-				fmt.Printf("[ERROR] Subscription ID is not found for %s\n", terraformInstanceID)
-				fmt.Printf("  Please file a PR on https://github.com/aristosvo/aztfmove and mention this ID: %s\n", terraformInstanceID)
-
-				os.Exit(1)
-			}
-
-			if instanceSubscriptionId != subscriptionId {
-				fmt.Printf("[ERROR] Resource instance `%s` has a different subscription specified, unable to start moving\n", terraformInstanceID)
+			if instance.SubscriptionID() != subscriptionId {
+				fmt.Printf("[ERROR] Resource instance `%s` has a different subscription specified, unable to start moving\n", instance.ID(r))
 				fmt.Printf(" Resource instance subscription ID : %s\n", strings.Split(instance.Attributes.ID, "/")[2])
 				fmt.Printf(" Specified subscription ID : %s\n", subscriptionId)
-
 				os.Exit(1)
 			}
 
-			// Only one resource group is supported at the same time
-			instanceResourceGroupId := ""
-			if strings.HasPrefix(instance.Attributes.ID, fmt.Sprintf("/subscriptions/%s/resourceGroups/", subscriptionId)) {
-				instanceResourceGroupId = strings.Split(instance.Attributes.ID, "/")[4]
-			} else if instance.Attributes.ResourceManagerID != "" {
-				instanceResourceGroupId = strings.Split(instance.Attributes.ResourceManagerID, "/")[4]
-			} else if instance.Attributes.KeyVaultID != "" {
-				instanceResourceGroupId = strings.Split(instance.Attributes.KeyVaultID, "/")[4]
-			} else {
-				fmt.Printf("[ERROR] Resource group is not found for %s\n", terraformInstanceID)
-
+			instanceResourceGroup := instance.ResourceGroup(subscriptionId)
+			if instanceResourceGroup == "" {
+				fmt.Printf("[ERROR] Resource group is not found for %s\n", instance.ID(r))
+				fmt.Printf("  Please file a PR on https://github.com/aristosvo/aztfmove and mention this ID: %s\n", instance.ID(r))
 				os.Exit(1)
 			}
 
 			// thirth filter: resource group
-			if *resourceGroupFlag != "" && instanceResourceGroupId != *resourceGroupFlag {
+			if *resourceGroupFlag != "*" && instanceResourceGroup != *resourceGroupFlag {
 				continue
 			}
 
-			if resourceGroup == "" {
-				resourceGroup = instanceResourceGroupId
-			} else if resourceGroup != instanceResourceGroupId {
+			// Only one resource group is supported at the same time
+			if resourceGroup == "*" {
+				resourceGroup = instanceResourceGroup
+			} else if resourceGroup != instanceResourceGroup {
 				fmt.Printf("[ERROR] Multiple resource groups found within your selection, unable to start moving\n")
-				fmt.Printf(" Resource groups found : [%s, %s]\n", resourceGroup, instanceResourceGroupId)
+				fmt.Printf(" Resource groups found : [%s, %s]\n", resourceGroup, instanceResourceGroup)
 
 				os.Exit(1)
 			}
@@ -199,20 +211,35 @@ func main() {
 				futureAzureId = strings.Replace(instance.Attributes.ID, resourceGroupId, targetResourceGroupId, 1)
 			}
 
-			fmt.Println(" -", terraformInstanceID)
-			summary := ResourceInstanceSummary{AzureID: instance.Attributes.ID,
+			summary := ResourceInstanceSummary{
+				AzureID:       instance.Attributes.ID,
 				FutureAzureID: futureAzureId,
-				TerraformID:   terraformInstanceID,
-				MoveOnAzure:   !contains(resourcesOnlyMovedInTF, r.Type)}
-			resourceInstancesContainer = append(resourceInstancesContainer, summary)
+				TerraformID:   instance.ID(r),
+				MoveOnAzure:   !contains(resourcesOnlyMovedInTF, r.Type),
+				NotSupported:  contains(resourcesNotSupportedInAzure, r.Type),
+			}
+			resourceInstances = append(resourceInstances, summary)
+		}
+	}
 
+	fmt.Printf("\nResources not supported for movement:\n")
+	for _, rs := range resourceInstances {
+		if rs.NotSupported {
+			fmt.Println(" -", rs.TerraformID)
+		}
+	}
+
+	fmt.Printf("\nResources moved in Terraform:\n")
+	for _, rs := range resourceInstances {
+		if !rs.NotSupported {
+			fmt.Println(" -", rs.TerraformID)
 		}
 	}
 
 	fmt.Printf("\nResources moved in Azure:\n")
 	var azureIDs []string
-	for _, rs := range resourceInstancesContainer {
-		if rs.MoveOnAzure {
+	for _, rs := range resourceInstances {
+		if rs.MoveOnAzure && !rs.NotSupported {
 			azureIDs = append(azureIDs, rs.AzureID)
 			fmt.Println(" -", rs.AzureID)
 		}
@@ -248,32 +275,25 @@ func main() {
 	}
 
 	fmt.Printf("\n\nResources are removed and imported in Terraform state:\n")
-	for _, rs := range resourceInstancesContainer {
+	for _, rs := range resourceInstances {
 		fmt.Println(" -", rs.TerraformID)
-		fmt.Printf("  Resource will be removed..\n")
-		cmdRemove := exec.Command("terraform", "state", "rm", rs.TerraformID)
-		var outRemove bytes.Buffer
-		cmdRemove.Stdout = &outRemove
-		cmdRemove.Stderr = &outRemove
-		err := cmdRemove.Run()
+
+		fmt.Printf("    Resource will be removed..\n")
+		output, err := rs.removeFromTFState()
 		if err != nil {
-			fmt.Println(outRemove.String())
+			fmt.Println(output)
 			fmt.Printf("\n[ERROR] Terraform state is not removed: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Printf("  Resource is removed and will be imported..\n")
+		fmt.Printf("    Resource is removed and will be imported..\n")
 
-		cmdImport := exec.Command("terraform", "import", rs.TerraformID, rs.FutureAzureID)
-		var outImport bytes.Buffer
-		cmdImport.Stdout = &outImport
-		cmdImport.Stderr = &outImport
-		err = cmdImport.Run()
+		output, err = rs.importInTFState()
 		if err != nil {
-			fmt.Println(outImport.String())
+			fmt.Println(output)
 			fmt.Printf("\n[ERROR] Terraform resource is not imported: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Printf("  Resource is imported..\n")
+		fmt.Printf("    Resource is imported..\n")
 	}
 
 	fmt.Printf("\nResources are moved and correctly imported in Terraform.\n")
@@ -287,4 +307,36 @@ func contains(s []string, str string) bool {
 	}
 
 	return false
+}
+
+func (ris ResourceInstanceSummary) removeFromTFState() (string, error) {
+	cmdRemove := exec.Command("terraform", "state", "rm", ris.TerraformID)
+	var outRemove bytes.Buffer
+	cmdRemove.Stdout = &outRemove
+	cmdRemove.Stderr = &outRemove
+
+	return outRemove.String(), cmdRemove.Run()
+}
+
+func (ris ResourceInstanceSummary) importInTFState() (string, error) {
+	cmdImport := exec.Command("terraform", "import", ris.TerraformID, ris.FutureAzureID)
+	var outImport bytes.Buffer
+	cmdImport.Stdout = &outImport
+	cmdImport.Stderr = &outImport
+
+	return outImport.String(), cmdImport.Run()
+}
+
+func pullTerraformState() (TerraformState, error) {
+	var tfstate TerraformState
+	cmd := exec.Command("terraform", "state", "pull")
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	err := cmd.Run()
+	if err != nil {
+		return tfstate, err
+	}
+	json.Unmarshal(out.Bytes(), &tfstate)
+	return tfstate, nil
 }
