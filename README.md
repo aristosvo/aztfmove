@@ -101,14 +101,14 @@ Congratulations! Resources are moved in Azure and corrected in Terraform.
 
 
 ## ToDo
-- [ ] Use [terratest](https://terratest.gruntwork.io) or similar for AccTests
 - [x] Rework the code in multiple packages instead of one file
-- [x] Introduce a verify step 
+- [x] Introduce a verification step 
 - [x] Introduce a dry-run option 
 - [x] Colored output
 - [x] Documentation around authentication
+- [x] Unit tests
+- [ ] Use [terratest](https://terratest.gruntwork.io) or similar for AccTests
 - [ ] Multiple authentication options
-- [ ] Unit tests
 - [ ] Add an `-exclude` flag
 
 ## Licence
