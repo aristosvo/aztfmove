@@ -14,14 +14,6 @@ import (
 	"github.com/aristosvo/aztfmove/state"
 )
 
-type ResourceInstanceSummary struct {
-	AzureID       string
-	TerraformID   string
-	FutureAzureID string
-	MoveOnAzure   bool
-	NotSupported  bool
-}
-
 var (
 	Azure = Teal
 	Warn  = Yellow
@@ -44,21 +36,29 @@ func Color(colorString string) func(...interface{}) string {
 	return sprint
 }
 
+var (
+	tfVars     state.ArrayVars
+	tfVarFiles state.ArrayVarFiles
+)
+
 func main() {
-	var resourceFlag = flag.String("resource", "*", "Terraform resource to be moved. For example \"module.storage.azurerm_storage_account.example\".")
-	var moduleFlag = flag.String("module", "*", "Terraform module to be moved. For example \"module.storage\".")
-	var resourceGroupFlag = flag.String("resource-group", "*", "Azure resource group to be moved. For example \"example-source-resource-group\".")
-	var subscriptionFlag = flag.String("subscription-id", os.Getenv("ARM_SUBSCRIPTION_ID"), "subscription where resources are currently. Environment variable \"ARM_SUBSCRIPTION_ID\" has the same functionality.")
-	var targetResourceGroupFlag = flag.String("target-resource-group", "", "Azure resource group name where resources are moved. For example \"example-target-resource-group\". (required)")
-	var targetSubscriptionFlag = flag.String("target-subscription-id", os.Getenv("ARM_SUBSCRIPTION_ID"), "Azure subscription ID where resources are moved. If not specified resources are moved within the subscription.")
-	var autoApproveFlag = flag.Bool("auto-approve", false, "aztfmove first shows which resources are selected for a move and requires approval. If you want to approve automatically, use this flag.")
-	var dryRunFlag = flag.Bool("dry-run", false, "if set to true, aztfmove only shows which resources are selected for a move.")
-	// Future functionality:
-	// var excludeResourcesFlag = flag.String("exclude-resources", "-", "Terraform resources to be excluded from moving. For example \"module.storage.azurerm_storage_account.example,module.storage.azurerm_storage_account.example\".")
+	// TODO: should probably refactor `-resource` and `-module` to `-target` to mimic terraform flags as much as possible
+	resourceFlag := flag.String("resource", "*", "Terraform resource to be moved. For example \"module.storage.azurerm_storage_account.example\".")
+	moduleFlag := flag.String("module", "*", "Terraform module to be moved. For example \"module.storage\".")
+	resourceGroupFlag := flag.String("resource-group", "*", "Azure resource group to be moved. For example \"example-source-resource-group\".")
+	subscriptionFlag := flag.String("subscription-id", os.Getenv("ARM_SUBSCRIPTION_ID"), "subscription where resources are currently. Environment variable \"ARM_SUBSCRIPTION_ID\" has the same functionality.")
+	targetResourceGroupFlag := flag.String("target-resource-group", "", "Azure resource group name where resources are moved. For example \"example-target-resource-group\". (required)")
+	targetSubscriptionFlag := flag.String("target-subscription-id", *subscriptionFlag, "Azure subscription ID where resources are moved. If not specified resources are moved within the subscription.")
+	autoApproveFlag := flag.Bool("auto-approve", false, "aztfmove first shows which resources are selected for a move and requires approval. If you want to approve automatically, use this flag.")
+	dryRunFlag := flag.Bool("dry-run", false, "if set to true, aztfmove only shows which resources are selected for a move.")
+	flag.Var(&tfVars, "var", "use this like you'd use Terraform \"-var\", i.e. \"-var 'test1=123' -var 'test2=312'\" ")
+	flag.Var(&tfVarFiles, "var-file", "use this like you'd use Terraform \"-var-file\", i.e. \"-var-file=tst.tfvars\" ")
+	// TODO: var excludeResourcesFlag = flag.String("exclude-resources", "-", "Terraform resources to be excluded from moving. For example \"module.storage.azurerm_storage_account.example,module.storage.azurerm_storage_account.example\".")
+	// but..., this is not according to previously stated principle to mimic terraform flags as much as possible
 	flag.Parse()
 
 	if *targetResourceGroupFlag == "" {
-		fmt.Printf("%s `resource` (which can also be a module) and target-resource-group are both required variables\n", Fata("Error:"))
+		fmt.Printf("%s target-resource-group is a required variables\n", Fata("Error:"))
 		os.Exit(1)
 	}
 
@@ -73,6 +73,7 @@ func main() {
 	if *targetSubscriptionFlag == "" || *targetSubscriptionFlag == *subscriptionFlag {
 		fmt.Println("No unique \"-target-subscription-id\" specified, move will be within the same subscription:")
 		fmt.Printf(" %s -> %s \n", sourceSubscriptionId, sourceSubscriptionId)
+		*targetSubscriptionFlag = sourceSubscriptionId
 	} else {
 		fmt.Println("Target subscription specified, move will be to a different subscription:")
 		fmt.Printf(" %s -> %s \n", sourceSubscriptionId, *targetSubscriptionFlag)
@@ -126,9 +127,8 @@ func printNotSupported(terraformIDs []string) {
 
 func printToCorrectInTF(resources map[string]string) {
 	fmt.Print(Good("\nResources to be corrected in Terraform:\n"))
-	for k := range resources {
-		fmt.Println(" -", k)
-
+	for k, v := range resources {
+		fmt.Printf(" - %s: [id=%s]\n", k, v)
 	}
 }
 
@@ -174,12 +174,12 @@ func moveAzureResources(azureIDs []string, sourceResourceGroup string, sourceSub
 
 	future, err := resourceClient.MoveResources(ctx, sourceResourceGroup, moveInfo)
 	if err != nil {
-		fmt.Printf("%s cannot move resources: %v", Fata("Error:"), err)
+		fmt.Printf("\n%s cannot move resources: %v", Fata("Error:"), err)
 		os.Exit(1)
 	}
 	err = future.WaitForCompletionRef(ctx, resourceClient.Client)
 	if err != nil {
-		fmt.Printf("%s cannot get the move future response: %v", Fata("Error:"), err)
+		fmt.Printf("\n%s cannot get the move future response: %v", Fata("Error:"), err)
 		os.Exit(1)
 	}
 }
@@ -190,16 +190,16 @@ func correctTerraformResources(resources map[string]string) {
 
 		output, err := state.RemoveInstance(tfID)
 		if err != nil {
-			fmt.Println(output)
-			fmt.Printf("\n%s terraform resource is not removed: %v\n", Fata("Error:"), err)
+			fmt.Printf("\n%s terraform resource is not removed, %v\n", Fata("Error:"), err)
+			fmt.Println(" ", output)
 			os.Exit(1)
 		}
-		fmt.Printf("    ✓ Removed")
+		fmt.Printf("\t✓ Removed")
 
-		output, err = state.ImportInstance(tfID, newAzureID)
+		output, err = state.ImportInstance(tfID, newAzureID, tfVars, tfVarFiles)
 		if err != nil {
-			fmt.Println(output)
-			fmt.Printf("\n%s terraform resource is not imported: %v\n", Fata("Error:"), err)
+			fmt.Printf("\n%s terraform resource is not imported, %v\n", Fata("Error:"), err)
+			fmt.Println(" ", output)
 			os.Exit(1)
 		}
 		fmt.Printf("\t✓ Imported\n")

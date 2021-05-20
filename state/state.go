@@ -1,10 +1,7 @@
 package state
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"os/exec"
 	"strings"
 )
 
@@ -46,12 +43,15 @@ func (i Instance) SubscriptionID() string {
 		return strings.Split(i.Attributes.ID, "/")[2]
 	}
 
-	// attributes `key_vault_id` or `resource_manager_id` are used to find subscription if ID doesn't contain these
+	// attributes `key_vault_id`, `resource_manager_id` or `subscription_id` are used to find subscription if ID doesn't contain these
 	if i.Attributes.ResourceManagerID != "" && strings.HasPrefix(i.Attributes.ResourceManagerID, "/subscriptions/") {
 		return strings.Split(i.Attributes.ResourceManagerID, "/")[2]
 	}
 	if i.Attributes.KeyVaultID != "" && strings.HasPrefix(i.Attributes.KeyVaultID, "/subscriptions/") {
 		return strings.Split(i.Attributes.KeyVaultID, "/")[2]
+	}
+	if i.Attributes.SubscriptionID != "" {
+		return i.Attributes.SubscriptionID
 	}
 
 	return ""
@@ -77,36 +77,5 @@ type Attributes struct {
 	ID                string
 	KeyVaultID        string `json:"key_vault_id,omitempty"`
 	ResourceManagerID string `json:"resource_manager_id,omitempty"`
-}
-
-func PullRemote() (TerraformState, error) {
-	var tfstate TerraformState
-	cmd := exec.Command("terraform", "state", "pull")
-	var out bytes.Buffer
-	cmd.Stdout = &out
-
-	err := cmd.Run()
-	if err != nil {
-		return tfstate, err
-	}
-	json.Unmarshal(out.Bytes(), &tfstate)
-	return tfstate, nil
-}
-
-func RemoveInstance(id string) (string, error) {
-	cmd := exec.Command("terraform", "state", "rm", id)
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-
-	return out.String(), cmd.Run()
-}
-
-func ImportInstance(id, newResourceID string) (string, error) {
-	cmd := exec.Command("terraform", "import", id, newResourceID)
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-
-	return out.String(), cmd.Run()
+	SubscriptionID    string `json:"subscription_id,omitempty"`
 }

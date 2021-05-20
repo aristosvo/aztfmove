@@ -106,10 +106,11 @@ Congratulations! Resources are moved in Azure and corrected in Terraform.
 - [x] Introduce a dry-run option 
 - [x] Colored output
 - [x] Documentation around authentication
+- [x] Support environments which require variables or variable files on import
 - [x] Unit tests
 - [ ] Use [terratest](https://terratest.gruntwork.io) or similar for AccTests
-- [ ] Multiple authentication options
-- [ ] Add an `-exclude` flag
+- [ ] Multiple authentication options (ideally all options supported in the provider)
+- [ ] ~~Add an `-exclude` flag (trying to mimic flags of terraform, doesn't fit in that pattern)~~
 
 ## Licence
 

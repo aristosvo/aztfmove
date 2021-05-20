@@ -29,6 +29,7 @@ func TestResourceID(t *testing.T) {
 		}
 	})
 }
+
 func TestInstanceID(t *testing.T) {
 	t.Run("No index", func(t *testing.T) {
 		resource := Resource{
@@ -80,7 +81,7 @@ func TestInstanceID(t *testing.T) {
 			Type:   "azurerm_storage_account",
 			Name:   "example_storage",
 			Instances: []Instance{
-				Instance{
+				{
 					IndexKey: 1,
 					Attributes: Attributes{
 						ID: "",
@@ -98,7 +99,7 @@ func TestInstanceID(t *testing.T) {
 }
 
 func TestInstanceSubscriptionID(t *testing.T) {
-	t.Run("Working ID", func(t *testing.T) {
+	t.Run("azurerm", func(t *testing.T) {
 		instance := Instance{
 			Attributes: Attributes{
 				ID: "/subscriptions/test/resourceGroups/test123",
@@ -112,7 +113,7 @@ func TestInstanceSubscriptionID(t *testing.T) {
 		}
 	})
 
-	t.Run("Wrong ID", func(t *testing.T) {
+	t.Run("wrong", func(t *testing.T) {
 		instance := Instance{
 			Attributes: Attributes{
 				ID: "/subscription/test/resourceGroups/test123",
@@ -126,10 +127,10 @@ func TestInstanceSubscriptionID(t *testing.T) {
 		}
 	})
 
-	t.Run("Invalid ID working RM ID", func(t *testing.T) {
+	t.Run("azurerm_storage_container", func(t *testing.T) {
 		instance := Instance{
 			Attributes: Attributes{
-				ID:                "/subscription/test/resourceGroups/test123",
+				ID:                "https://example.blob.core.windows.net/container",
 				ResourceManagerID: "/subscriptions/test/resourceGroups/test123",
 			},
 		}
@@ -141,10 +142,10 @@ func TestInstanceSubscriptionID(t *testing.T) {
 		}
 	})
 
-	t.Run("Invalid ID working KV ID", func(t *testing.T) {
+	t.Run("azurerm_key_vault_secret", func(t *testing.T) {
 		instance := Instance{
 			Attributes: Attributes{
-				ID:         "/subscription/test/resourceGroups/test123",
+				ID:         "https://example-keyvault.vault.azure.net/secrets/example/fdf067c93bbb4b22bff4d8b7a9a56217",
 				KeyVaultID: "/subscriptions/test7/resourceGroups/test123",
 			},
 		}
@@ -156,16 +157,30 @@ func TestInstanceSubscriptionID(t *testing.T) {
 		}
 	})
 
-	t.Run("Invalid ID non working KV ID", func(t *testing.T) {
+	t.Run("azurerm_key_vault_secret invalid", func(t *testing.T) {
 		instance := Instance{
 			Attributes: Attributes{
-				ID:         "/subscription/test/resourceGroups/test123",
+				ID:         "https://example-keyvault.vault.azure.net/secrets/example/fdf067c93bbb4b22bff4d8b7a9a56217",
 				KeyVaultID: "/subscriptio/test7/resourceGroups/test123",
 			},
 		}
 
 		got := instance.SubscriptionID()
 		wanted := ""
+		if got != wanted {
+			t.Errorf("got %s wanted %s", got, wanted)
+		}
+	})
+
+	t.Run("azurerm_client_config", func(t *testing.T) {
+		instance := Instance{
+			Attributes: Attributes{
+				SubscriptionID: "test12392139",
+			},
+		}
+
+		got := instance.SubscriptionID()
+		wanted := "test12392139"
 		if got != wanted {
 			t.Errorf("got %s wanted %s", got, wanted)
 		}

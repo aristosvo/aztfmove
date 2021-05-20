@@ -56,6 +56,7 @@ var resourcesNotSupportedInAzure = []string{
 	"azurerm_kubernetes_cluster",
 	"azurerm_resource_group",
 	"azurerm_client_config",
+	"azurerm_monitor_diagnostic_setting",
 }
 
 func (tfstate TerraformState) Filter(resourceFilter, moduleFilter, resourceGroupFilter, sourceSubscriptionID, targetResourceGroup, targetSubscriptionID string) (resourceInstances ResourcesInstanceSummary, sourceResourceGroup string, err error) {
@@ -88,7 +89,7 @@ func (tfstate TerraformState) Filter(resourceFilter, moduleFilter, resourceGroup
 			}
 
 			instanceResourceGroup := instance.ResourceGroup()
-			if instanceResourceGroup == "" {
+			if instanceResourceGroup == "" && !contains(resourcesNotSupportedInAzure, r.Type) {
 				err = fmt.Errorf("resource group is not found for %s. Please file a PR on https://github.com/aristosvo/aztfmove and mention this ID: %s", instance.ID(r), instance.ID(r))
 				return nil, "", err
 			}

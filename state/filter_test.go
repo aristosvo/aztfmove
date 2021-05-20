@@ -105,7 +105,6 @@ func TestFilter(t *testing.T) {
 		}
 		if !reflect.DeepEqual(gotSummary, wantedSummary) {
 			t.Errorf("got %v wanted %v", gotSummary, wantedSummary)
-
 		}
 	})
 
@@ -127,7 +126,6 @@ func TestFilter(t *testing.T) {
 		}
 		if !reflect.DeepEqual(gotSummary, wantedSummary) {
 			t.Errorf("got %v wanted %v", gotSummary, wantedSummary)
-
 		}
 	})
 
@@ -149,7 +147,6 @@ func TestFilter(t *testing.T) {
 		}
 		if !reflect.DeepEqual(gotSummary, wantedSummary) {
 			t.Errorf("got %v wanted %v", gotSummary, wantedSummary)
-
 		}
 	})
 
@@ -197,7 +194,6 @@ func TestNotSupported(t *testing.T) {
 		},
 	}
 	t.Run("Not Supported list", func(t *testing.T) {
-
 		got := summary.NotSupported()
 		wanted := []string{"module.test.azurerm_resource_group.rg3"}
 
@@ -217,7 +213,8 @@ func TestNotSupported(t *testing.T) {
 
 	t.Run("To correct in TF map", func(t *testing.T) {
 		got := summary.ToCorrectInTFState()
-		wanted := map[string]string{"module.test.azurerm_storage_container.example_container_1": "https://example.blob.core.windows.net/container_1",
+		wanted := map[string]string{
+			"module.test.azurerm_storage_container.example_container_1":    "https://example.blob.core.windows.net/container_1",
 			"module.storage.azurerm_storage_account.example_storage_2":     "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/myresourcegroup2/providers/Microsoft.Storage/storageAccounts/storageaccount2",
 			"module.storage.azurerm_storage_container.example_container_2": "https://example.blob.core.windows.net/container_2",
 		}
