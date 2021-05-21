@@ -43,10 +43,10 @@ func RemoveInstance(id string) (string, error) {
 
 	err := cmd.Run()
 	if err != nil {
-		err = fmt.Errorf("terraform command \"terraform state rm %s\" failed : %v", id, err)
+		return out.String(), fmt.Errorf("terraform command \"terraform state rm %s\" failed : %v", id, err)
 	}
 
-	return out.String(), err
+	return "", nil
 }
 
 func ImportInstance(id, newResourceID string, vars ArrayVars, varfiles ArrayVarFiles) (string, error) {
@@ -61,10 +61,10 @@ func ImportInstance(id, newResourceID string, vars ArrayVars, varfiles ArrayVarF
 
 	err := cmd.Run()
 	if err != nil {
-		err = fmt.Errorf("terraform command \"terraform %s\" failed: %v", strings.Join(cmdVars, " "), err)
+		return out.String(), fmt.Errorf("terraform command \"terraform %s\" failed: %v", strings.Join(cmdVars, " "), err)
 	}
 
-	return out.String(), err
+	return "", nil
 }
 
 func (s *TerraformState) parseState(data []byte) error {

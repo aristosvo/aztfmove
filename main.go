@@ -21,12 +21,13 @@ var (
 	// TODO: should probably refactor `-resource` and `-module` to `-target` to mimic terraform flags as much as possible
 	resourceFlag            = flag.String("resource", "*", "Terraform resource to be moved. For example \"module.storage.azurerm_storage_account.example\".")
 	moduleFlag              = flag.String("module", "*", "Terraform module to be moved. For example \"module.storage\".")
-	resourceGroupFlag       = flag.String("resource-group", "*", "Azure resource group to be moved. For example \"example-source-resource-group\".")
+	sourceResourceGroupFlag = flag.String("resource-group", "*", "Azure resource group to be moved. For example \"example-source-resource-group\".")
 	sourceSubscriptionFlag  = flag.String("subscription-id", os.Getenv("ARM_SUBSCRIPTION_ID"), "subscription where resources are currently. Environment variable \"ARM_SUBSCRIPTION_ID\" has the same functionality.")
 	targetResourceGroupFlag = flag.String("target-resource-group", "", "Azure resource group name where resources are moved. For example \"example-target-resource-group\". (required)")
 	targetSubscriptionFlag  = flag.String("target-subscription-id", *sourceSubscriptionFlag, "Azure subscription ID where resources are moved. If not specified resources are moved within the subscription.")
 	autoApproveFlag         = flag.Bool("auto-approve", false, "aztfmove first shows which resources are selected for a move and requires approval. If you want to approve automatically, use this flag.")
 	dryRunFlag              = flag.Bool("dry-run", false, "if set to true, aztfmove only shows which resources are selected for a move.")
+	noColorFlag             = flag.Bool("no-color", false, "if set to true, aztfmove prints without color.")
 	// TODO: var excludeResourcesFlag = flag.String("exclude-resources", "-", "Terraform resources to be excluded from moving. For example \"module.storage.azurerm_storage_account.example,module.storage.azurerm_storage_account.example\".")
 	// but..., this is not according to previously stated principle to mimic terraform flags as much as possible
 )
@@ -37,21 +38,33 @@ func init() {
 }
 
 var (
-	Azure = Teal
-	Warn  = Yellow
-	Fata  = Red
-	Good  = Green
+	Azure        = TealBold
+	AzureCLI     = Teal
+	Warn         = Yellow
+	Fata         = Red
+	Good         = Green
+	Terraform    = CyanBold
+	TerraformCLI = Cyan
 )
 
 var (
-	Red    = Color("\033[1;31m%s\033[0m")
-	Green  = Color("\033[1;32m%s\033[0m")
-	Yellow = Color("\033[1;33m%s\033[0m")
-	Teal   = Color("\033[1;36m%s\033[0m")
+	Red      = Color("\033[1;31m%s\033[0m")
+	Green    = Color("\033[1;32m%s\033[0m")
+	Yellow   = Color("\033[1;33m%s\033[0m")
+	Teal     = Color("\033[36m%s\033[0m")
+	TealBold = Color("\033[1;36m%s\033[0m")
+	CyanBold = Color("\033[1;35m%s\033[0m")
+	Cyan     = Color("\033[35m%s\033[0m")
 )
 
 func Color(colorString string) func(...interface{}) string {
 	sprint := func(args ...interface{}) string {
+		if *noColorFlag && strings.Contains(colorString, "1;") {
+			return fmt.Sprintf("\033[1m%s\033[0m",
+				fmt.Sprint(args...))
+		} else if *noColorFlag {
+			return fmt.Sprint(args...)
+		}
 		return fmt.Sprintf(colorString,
 			fmt.Sprint(args...))
 	}
@@ -60,17 +73,15 @@ func Color(colorString string) func(...interface{}) string {
 
 func main() {
 	flag.Parse()
-
 	validateInput()
 
 	if *targetSubscriptionFlag == "" || *targetSubscriptionFlag == *sourceSubscriptionFlag {
 		fmt.Println("No unique \"-target-subscription-id\" specified, move will be within the same subscription:")
-		fmt.Printf(" %s -> %s \n", *sourceSubscriptionFlag, *sourceSubscriptionFlag)
 		*targetSubscriptionFlag = *sourceSubscriptionFlag
 	} else {
 		fmt.Println("Target subscription specified, move will be to a different subscription:")
-		fmt.Printf(" %s -> %s \n", *sourceSubscriptionFlag, *targetSubscriptionFlag)
 	}
+	fmt.Printf(" %s -> %s \n", *sourceSubscriptionFlag, *targetSubscriptionFlag)
 
 	tfstate, err := state.PullRemote()
 	if err != nil {
@@ -78,7 +89,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	resourceInstances, sourceResourceGroup, err := tfstate.Filter(*resourceFlag, *moduleFlag, *resourceGroupFlag, *sourceSubscriptionFlag, *targetResourceGroupFlag, *targetSubscriptionFlag)
+	resourceInstances, sourceResourceGroup, err := tfstate.Filter(*resourceFlag, *moduleFlag, *sourceResourceGroupFlag, *sourceSubscriptionFlag, *targetResourceGroupFlag, *targetSubscriptionFlag)
 	if err != nil {
 		fmt.Printf("%s %v", Fata("Error:"), err)
 		os.Exit(1)
@@ -88,27 +99,35 @@ func main() {
 	printToMoveInAzure(resourceInstances.MovableOnAzure())
 	printToCorrectInTF(resourceInstances.ToCorrectInTFState())
 
-	if *dryRunFlag {
-		fmt.Print(Green("\nDry-run complete!\n"))
-		fmt.Print("Resources are not moved to the specified resource group, but the resources which would be moved are visible above.\n")
-		os.Exit(0)
-	}
-	if !*autoApproveFlag {
+	if !*dryRunFlag && !*autoApproveFlag {
 		askConfirmation()
 	}
 
 	if azureIDs := resourceInstances.MovableOnAzure(); len(azureIDs) > 0 {
-		fmt.Print(Green("\nResources are on the move to the specified resource group."))
-		fmt.Printf("\nIt can take some time before this is done, don't panic!")
-
+		fmt.Print(Azure("\nResources are on the move to the specified resource group."))
+		if *dryRunFlag {
+			fmt.Print(" (dry-run!)")
+		}
 		moveAzureResources(azureIDs, sourceResourceGroup, *sourceSubscriptionFlag, *targetSubscriptionFlag, *targetResourceGroupFlag)
-		fmt.Print(Green("\n\nResources are moved to the specified resource group."))
+		fmt.Print(Good("\n\nResources are moved to the specified resource group."))
+		if *dryRunFlag {
+			fmt.Print(" (dry-run!)")
+		}
 	}
 
-	fmt.Printf("\n\nResources in Terraform state are enhanced:\n")
-	correctTerraformResources(resourceInstances.ToCorrectInTFState())
+	fmt.Print(Terraform("\n\nResources in Terraform state are enhanced:"))
+	if *dryRunFlag {
+		fmt.Print(" (dry-run!)")
+	}
+	reimportTerraformResources(resourceInstances.ToCorrectInTFState())
 
-	fmt.Print(Green("\nCongratulations! Resources are moved in Azure and corrected in Terraform.\n"))
+	if *dryRunFlag {
+		fmt.Print(Good("\nDry-run complete!\n"))
+		fmt.Printf("Resources are not moved to the specified resource group, but the resources actions (and corresponding %s and %s commands) are visible above.\n", Azure("az cli"), Terraform("terraform"))
+		os.Exit(0)
+	}
+
+	fmt.Print(Good("\nCongratulations! Resources are moved in Azure and corrected in Terraform.\n"))
 }
 
 func validateInput() {
@@ -131,7 +150,7 @@ func printNotSupported(terraformIDs []string) {
 }
 
 func printToCorrectInTF(resources map[string]string) {
-	fmt.Print(Good("\nResources to be corrected in Terraform:\n"))
+	fmt.Print(Terraform("\nResources to be corrected in Terraform:\n"))
 	for k, v := range resources {
 		fmt.Printf(" - %s: [id=%s]\n", k, v)
 	}
@@ -145,9 +164,13 @@ func printToMoveInAzure(azureIDs []string) {
 }
 
 func askConfirmation() {
-	fmt.Print(Warn("\nCan you confirm these resources should be moved?"))
+	fmt.Print(Good("\nCan you confirm these resources should be moved?"))
+	if *dryRunFlag {
+		fmt.Print(" (dry-run!)")
+	}
 	fmt.Printf("\nCheck the Azure documentation on moving Azure resources (https://docs.microsoft.com/en-us/azure/azure-resource-manager/management/move-resource-group-and-subscription) for all the details for your specific resources.")
-	fmt.Print(Warn("\n\nType 'yes' to confirm: "))
+	fmt.Print(Good("\n\nType 'yes' to confirm: "))
+
 	reader := bufio.NewReader(os.Stdin)
 	inputString, err := reader.ReadString('\n')
 	if err != nil {
@@ -163,6 +186,14 @@ func askConfirmation() {
 }
 
 func moveAzureResources(azureIDs []string, sourceResourceGroup string, sourceSubscriptionID string, targetSubscriptionID string, targetResourceGroup string) {
+	if *dryRunFlag {
+		fmt.Println("\nThe Azure move actions when '-dry-run=false' are similar to the scripted action below:")
+		fmt.Printf(AzureCLI("  az resource move --destination-group '%s' --destination-subscription-id '%s' --ids '%s'"), targetResourceGroup, targetSubscriptionID, strings.Join(azureIDs, " "))
+
+		return
+	}
+
+	fmt.Printf("\nIt can take some time before this is done, don't panic!")
 	targetResourceGroupID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s", targetSubscriptionID, targetResourceGroup)
 	moveInfo := resources.MoveInfo{
 		ResourcesProperty:   &azureIDs,
@@ -189,7 +220,17 @@ func moveAzureResources(azureIDs []string, sourceResourceGroup string, sourceSub
 	}
 }
 
-func correctTerraformResources(resources map[string]string) {
+func reimportTerraformResources(resources map[string]string) {
+	if *dryRunFlag {
+		fmt.Println("\nThe Terraform actions taken when '-dry-run=false' are similar to the scripted actions below:")
+		for tfID, newAzureID := range resources {
+			fmt.Println(" #", tfID)
+			fmt.Printf(TerraformCLI("  terraform state rm '%s'\n"), tfID)
+			fmt.Printf(TerraformCLI("  terraform import %s %s '%s' '%s'\n"), strings.Join(tfVarFiles, " "), strings.Join(tfVars, " "), tfID, newAzureID)
+		}
+		return
+	}
+
 	for tfID, newAzureID := range resources {
 		fmt.Println(" -", tfID)
 

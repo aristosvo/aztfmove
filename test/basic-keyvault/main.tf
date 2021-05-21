@@ -100,6 +100,7 @@ resource "azurerm_key_vault_secret" "move" {
   depends_on = [azurerm_key_vault_access_policy.move]
 
   name         = "secret-sauce"
+  content_type = ""
   value        = random_password.kv_pwd.result
   key_vault_id = azurerm_key_vault.kv_move.id
 }
