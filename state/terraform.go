@@ -27,11 +27,11 @@ func (i *ArrayVars) Set(value string) error {
 type ArrayVarFiles []string
 
 func (i *ArrayVarFiles) String() string {
-	return fmt.Sprint(&i)
+	return fmt.Sprint(*i)
 }
 
-func (i *ArrayVarFiles) Set(value string) error {
-	*i = append(*i, fmt.Sprintf("-var-file=%s", value))
+func (i *ArrayVarFiles) Set(list string) error {
+	*i = append(*i, fmt.Sprintf("-var-file=%s", list))
 	return nil
 }
 

@@ -26,6 +26,10 @@ Usage of aztfmove:
         Azure resource group name where resources are moved. For example "example-target-resource-group". (required)
   -target-subscription-id string
         Azure subscription ID where resources are moved. If not specified resources are moved within the subscription. (default "3xampl32-uu1d-11eb-8529-0242ac130003")
+  -var value
+        use this like you'd use Terraform "-var", i.e. "-var 'test1=123' -var 'test2=312'" 
+  -var-file value
+        use this like you'd use Terraform "-var-file", i.e. "-var-file=tst.tfvars"
 ```
 
 ## Setup
