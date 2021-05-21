@@ -19,22 +19,22 @@ var (
 	tfVarFiles state.ArrayVarFiles
 
 	// TODO: should probably refactor `-resource` and `-module` to `-target` to mimic terraform flags as much as possible
-	resourceFlag            = flag.String("resource", "*", "Terraform resource to be moved. For example \"module.storage.azurerm_storage_account.example\".")
-	moduleFlag              = flag.String("module", "*", "Terraform module to be moved. For example \"module.storage\".")
-	sourceResourceGroupFlag = flag.String("resource-group", "*", "Azure resource group to be moved. For example \"example-source-resource-group\".")
-	sourceSubscriptionFlag  = flag.String("subscription-id", os.Getenv("ARM_SUBSCRIPTION_ID"), "subscription where resources are currently. Environment variable \"ARM_SUBSCRIPTION_ID\" has the same functionality.")
-	targetResourceGroupFlag = flag.String("target-resource-group", "", "Azure resource group name where resources are moved. For example \"example-target-resource-group\". (required)")
+	resourceFlag            = flag.String("resource", "*", "Terraform resource to be moved. For example 'module.storage.azurerm_storage_account.example'.")
+	moduleFlag              = flag.String("module", "*", "Terraform module to be moved. For example 'module.storage'.")
+	sourceResourceGroupFlag = flag.String("resource-group", "*", "Azure resource group to be moved. For example 'example-source-resource-group'.")
+	sourceSubscriptionFlag  = flag.String("subscription-id", os.Getenv("ARM_SUBSCRIPTION_ID"), "subscription where resources are currently. Environment variable 'ARM_SUBSCRIPTION_ID' has the same functionality.")
+	targetResourceGroupFlag = flag.String("target-resource-group", "", "Azure resource group name where resources are moved. For example 'example-target-resource-group'. (required)")
 	targetSubscriptionFlag  = flag.String("target-subscription-id", *sourceSubscriptionFlag, "Azure subscription ID where resources are moved. If not specified resources are moved within the subscription.")
 	autoApproveFlag         = flag.Bool("auto-approve", false, "aztfmove first shows which resources are selected for a move and requires approval. If you want to approve automatically, use this flag.")
 	dryRunFlag              = flag.Bool("dry-run", false, "if set to true, aztfmove only shows which resources are selected for a move.")
 	noColorFlag             = flag.Bool("no-color", false, "if set to true, aztfmove prints without color.")
-	// TODO: var excludeResourcesFlag = flag.String("exclude-resources", "-", "Terraform resources to be excluded from moving. For example \"module.storage.azurerm_storage_account.example,module.storage.azurerm_storage_account.example\".")
+	// TODO: var excludeResourcesFlag = flag.String("exclude-resources", "-", "Terraform resources to be excluded from moving. For example 'module.storage.azurerm_storage_account.example,module.storage.azurerm_storage_account.example'.")
 	// but..., this is not according to previously stated principle to mimic terraform flags as much as possible
 )
 
 func init() {
 	flag.Var(&tfVars, "var", "use this like you'd use Terraform \"-var\", i.e. \"-var 'test1=123' -var 'test2=312'\" ")
-	flag.Var(&tfVarFiles, "var-file", "use this like you'd use Terraform \"-var-file\", i.e. \"-var-file=tst.tfvars\" ")
+	flag.Var(&tfVarFiles, "var-file", "use this like you'd use Terraform \"-var-file\", i.e. \"-var-file='tst.tfvars'\" ")
 }
 
 var (
@@ -76,10 +76,10 @@ func main() {
 	validateInput()
 
 	if *targetSubscriptionFlag == "" || *targetSubscriptionFlag == *sourceSubscriptionFlag {
-		fmt.Println("No unique \"-target-subscription-id\" specified, move will be within the same subscription:")
+		fmt.Println(Good("No unique \"-target-subscription-id\" specified, move will be within the same subscription:"))
 		*targetSubscriptionFlag = *sourceSubscriptionFlag
 	} else {
-		fmt.Println("Target subscription specified, move will be to a different subscription:")
+		fmt.Println(Good("Target subscription specified, move will be to a different subscription:"))
 	}
 	fmt.Printf(" %s -> %s \n", *sourceSubscriptionFlag, *targetSubscriptionFlag)
 
@@ -127,7 +127,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	fmt.Print(Good("\nCongratulations! Resources are moved in Azure and corrected in Terraform.\n"))
+	fmt.Print(Good("\n\nCongratulations! Resources are moved in Azure and corrected in Terraform.\n"))
 }
 
 func validateInput() {
@@ -187,7 +187,7 @@ func askConfirmation() {
 
 func moveAzureResources(azureIDs []string, sourceResourceGroup string, sourceSubscriptionID string, targetSubscriptionID string, targetResourceGroup string) {
 	if *dryRunFlag {
-		fmt.Println("\nThe Azure move actions when '-dry-run=false' are similar to the scripted action below:")
+		fmt.Println("\nThe Azure move actions when \"-dry-run=false\" are similar to the scripted action below:")
 		fmt.Printf(AzureCLI("  az resource move --destination-group '%s' --destination-subscription-id '%s' --ids '%s'"), targetResourceGroup, targetSubscriptionID, strings.Join(azureIDs, " "))
 
 		return
@@ -222,7 +222,7 @@ func moveAzureResources(azureIDs []string, sourceResourceGroup string, sourceSub
 
 func reimportTerraformResources(resources map[string]string) {
 	if *dryRunFlag {
-		fmt.Println("\nThe Terraform actions taken when '-dry-run=false' are similar to the scripted actions below:")
+		fmt.Println("\nThe Terraform actions taken when \"-dry-run=false\" are similar to the scripted actions below:")
 		for tfID, newAzureID := range resources {
 			fmt.Println(" #", tfID)
 			fmt.Printf(TerraformCLI("  terraform state rm '%s'\n"), tfID)
@@ -232,7 +232,7 @@ func reimportTerraformResources(resources map[string]string) {
 	}
 
 	for tfID, newAzureID := range resources {
-		fmt.Println(" -", tfID)
+		fmt.Println("\n -", tfID)
 
 		output, err := state.RemoveInstance(tfID)
 		if err != nil {
@@ -248,6 +248,6 @@ func reimportTerraformResources(resources map[string]string) {
 			fmt.Println(" ", output)
 			os.Exit(1)
 		}
-		fmt.Printf("\t✓ Imported\n")
+		fmt.Printf("\t✓ Imported")
 	}
 }
