@@ -11,6 +11,7 @@ echo "-------------------------------"
 echo ""
 aztfmove -resource-group input-kv-rg -target-resource-group output-kv-rg -auto-approve -dry-run
 aztfmove -resource-group input-kv-rg -target-resource-group output-kv-rg -auto-approve -var ip=$(curl ipinfo.io/ip) -var test=123 -var-file=moved.tfvars
+terraform plan -var ip=$(curl ipinfo.io/ip) -var test=123 -var-file=moved.tfvars -detailed-exitcode
 echo ""
 echo "-------------------------------"
 echo "          Stage 2              "
@@ -18,14 +19,15 @@ echo "  Terraform resources moved!   "
 echo "-------------------------------"
 echo ""
 aztfmove -target-resource-group input-kv-rg -auto-approve -dry-run -var-file=create.tfvars
-aztfmove -target-resource-group input-kv-rg -auto-approve -var ip=$(curl ipinfo.io/ip) -var test=123 -var-file=create.tfvars 
+aztfmove -target-resource-group input-kv-rg -auto-approve -var ip=$(curl ipinfo.io/ip) -var test=123 -var-file=create.tfvars
+terraform plan -var ip=$(curl ipinfo.io/ip) -var test=123 -var-file=create.tfvars -detailed-exitcode 
 echo ""
 echo "-------------------------------"
 echo "          Stage 3              "
 echo "Terraform resources moved back!"
 echo "-------------------------------"
 echo ""
-terraform destroy -auto-approve
+terraform destroy -var ip=$(curl ipinfo.io/ip) -var test=123 -var-file=create.tfvars -auto-approve
 rm terraform.tfstate*
 echo ""
 echo "-------------------------------"

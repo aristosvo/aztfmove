@@ -72,7 +72,7 @@ resource "azurerm_resource_group" "output_rg" {
 }
 
 resource "azurerm_key_vault" "kv_move" {
-  name                       = "move-kv-${random_password.kv_pwd.result}"
+  name                       = "move-kv-${nonsensitive(random_password.kv_pwd.result)}"
   location                   = var.location
   resource_group_name        = var.stage == "create" ? azurerm_resource_group.input_rg.name : azurerm_resource_group.output_rg.name
   tenant_id                  = data.azurerm_client_config.current.tenant_id
@@ -101,6 +101,10 @@ resource "azurerm_key_vault_secret" "move" {
 
   name         = "secret-sauce"
   content_type = ""
-  value        = random_password.kv_pwd.result
+  value        = nonsensitive(random_password.kv_pwd.result)
   key_vault_id = azurerm_key_vault.kv_move.id
+
+  lifecycle {
+    ignore_changes = [ content_type ]
+  }
 }
