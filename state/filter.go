@@ -108,7 +108,7 @@ func (tfstate TerraformState) Filter(resourceFilter, moduleFilter, resourceGroup
 				return nil, "", err
 			}
 
-			if instanceResourceGroup == targetResourceGroup && !contains(resourcesNotSupportedInAzure, r.Type) {
+			if instance.SubscriptionID() == targetSubscriptionID && instanceResourceGroup == targetResourceGroup && !contains(resourcesNotSupportedInAzure, r.Type) {
 				err = fmt.Errorf("the selected resource %s is already in the target resource group", instance.ID(r))
 				return nil, "", err
 			}
