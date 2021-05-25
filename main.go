@@ -208,7 +208,7 @@ func moveAzureResources(azureIDs []string, sourceResourceGroup string, sourceSub
 	if err == nil {
 		resourceClient.Authorizer = authorizer
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*60*time.Second)
 	defer cancel()
 
 	future, err := resourceClient.MoveResources(ctx, sourceResourceGroup, moveInfo)
