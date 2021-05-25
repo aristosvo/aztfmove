@@ -14,6 +14,7 @@ func TestFilter(t *testing.T) {
 				Module:   "",
 				Type:     "azurerm_storage_account",
 				Name:     "example_storage_1",
+				Mode:     "managed",
 				Instances: []Instance{
 					{
 						IndexKey: nil,
@@ -28,6 +29,7 @@ func TestFilter(t *testing.T) {
 				Module:   "module.storage",
 				Type:     "azurerm_storage_account",
 				Name:     "example_storage_2",
+				Mode:     "managed",
 				Instances: []Instance{
 					{
 						IndexKey: nil,
@@ -42,6 +44,7 @@ func TestFilter(t *testing.T) {
 				Module:   "module.test",
 				Type:     "azurerm_storage_container",
 				Name:     "example_container_1",
+				Mode:     "managed",
 				Instances: []Instance{
 					{
 						IndexKey: nil,
@@ -57,6 +60,7 @@ func TestFilter(t *testing.T) {
 				Module:   "module.storage",
 				Type:     "azurerm_storage_container",
 				Name:     "example_container_2",
+				Mode:     "managed",
 				Instances: []Instance{
 					{
 						IndexKey: nil,
@@ -73,6 +77,7 @@ func TestFilter(t *testing.T) {
 				Module:   "module.test",
 				Type:     "azurerm_resource_group",
 				Name:     "rg3",
+				Mode:     "managed",
 				Instances: []Instance{
 					{
 						IndexKey: nil,

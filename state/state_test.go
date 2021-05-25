@@ -91,7 +91,7 @@ func TestInstanceID(t *testing.T) {
 		}
 
 		got := resource.Instances[0].ID(resource)
-		wanted := "azurerm_storage_account.example_storage[\"1\"]"
+		wanted := "azurerm_storage_account.example_storage[1]"
 		if got != wanted {
 			t.Errorf("got %s wanted %s", got, wanted)
 		}
