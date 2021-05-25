@@ -33,8 +33,16 @@ type Instance struct {
 
 func (i Instance) ID(r Resource) string {
 	index := ""
+
 	if i.IndexKey != nil {
-		index = fmt.Sprintf("[\"%v\"]", i.IndexKey)
+		switch v := i.IndexKey.(type) {
+		case int:
+			index = fmt.Sprintf("[%d]", v)
+		case float64:
+			index = fmt.Sprintf("[%.0f]", v)
+		default:
+			index = fmt.Sprintf("[\"%v\"]", i.IndexKey)
+		}
 	}
 	return fmt.Sprintf("%s%s", r.ID(), index)
 }
