@@ -62,7 +62,7 @@ var resourcesNotSupportedInAzure = []string{
 func (tfstate TerraformState) Filter(resourceFilter, moduleFilter, resourceGroupFilter, sourceSubscriptionID, targetResourceGroup, targetSubscriptionID string) (resourceInstances ResourcesInstanceSummary, sourceResourceGroup string, err error) {
 	resourceGroup := resourceGroupFilter
 	for _, r := range tfstate.Resources {
-		if !strings.Contains(r.Provider, "provider[\"registry.terraform.io/hashicorp/azurerm\"]") {
+		if !strings.Contains(r.Provider, "provider[\"registry.terraform.io/hashicorp/azurerm\"]") || r.Mode != "managed" {
 			continue
 		}
 

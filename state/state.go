@@ -14,6 +14,7 @@ type Resource struct {
 	Name      string
 	Provider  string
 	Module    string
+	Mode      string
 	Instances []Instance
 }
 
