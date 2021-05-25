@@ -41,7 +41,9 @@ go install github.com/aristosvo/aztfmove
 
 ## Authentication
 
-Authentication is based on an default [azure-sdk-for-go](https://github.com/Azure/azure-sdk-for-go) authorizer which uses Azure CLI to obtain its credentials.
+Authentication for Terraform is the same for `aztfmove` as for normal `terraform` operations. Start with `terraform init` to make sure the (remote) terraform state is available.
+
+Authentication for the movements in Azure is based on an default [azure-sdk-for-go](https://github.com/Azure/azure-sdk-for-go) authorizer which uses Azure CLI to obtain its credentials.
 
 To use this way of authentication, follow these steps:
 
@@ -62,7 +64,6 @@ To verify the current account settings, use:
 ```
 az account list
 ```
-
 
 ## Examples
 For examples and/or tests, see [test](https://github.com/aristosvo/aztfmove/tree/main/test) directory.
@@ -107,12 +108,12 @@ Congratulations! Resources are moved in Azure and corrected in Terraform.
 ## ToDo
 - [x] Rework the code in multiple packages instead of one file
 - [x] Introduce a verification step 
-- [x] Introduce a dry-run option 
-- [x] Colored output
+- [x] Introduce a dry-run option, which returns the commands to execute the operations yourself
+- [x] Colored output as default, `-no-color` flag is available to remove the formatting
 - [x] Documentation around authentication
 - [x] Support environments which require variables or variable files on import
 - [x] Unit tests
-- [ ] Use [terratest](https://terratest.gruntwork.io) or similar for AccTests
+- [x] Use [terratest](https://terratest.gruntwork.io) for AccTests against Azure
 - [ ] Multiple authentication options (ideally all options supported in the provider)
 - [ ] ~~Add an `-exclude` flag (trying to mimic flags of terraform, doesn't fit in that pattern)~~
 

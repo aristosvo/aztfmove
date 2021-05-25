@@ -81,19 +81,28 @@ resource "azurerm_key_vault" "kv_move" {
   soft_delete_retention_days = 90
 
   network_acls {
-    default_action = "Deny"
-    bypass         = "None"
-    ip_rules       = [var.ip]
+    default_action             = "Deny"
+    bypass                     = "None"
+    ip_rules                   = [var.ip]
+    virtual_network_subnet_ids = []
   }
 
   tags = var.tags
+
+  lifecycle {
+    ignore_changes = [access_policy]
+  }
 }
 
 resource "azurerm_key_vault_access_policy" "move" {
-  key_vault_id       = azurerm_key_vault.kv_move.id
-  tenant_id          = data.azurerm_client_config.current.tenant_id
-  object_id          = data.azurerm_client_config.current.object_id
-  secret_permissions = ["Delete", "Get", "List", "Set"]
+  key_vault_id            = azurerm_key_vault.kv_move.id
+  tenant_id               = data.azurerm_client_config.current.tenant_id
+  object_id               = data.azurerm_client_config.current.object_id
+  secret_permissions      = ["Delete", "Get", "List", "Set"]
+  certificate_permissions = []
+  key_permissions         = []
+  storage_permissions     = []
+
 }
 
 resource "azurerm_key_vault_secret" "move" {
@@ -105,6 +114,8 @@ resource "azurerm_key_vault_secret" "move" {
   key_vault_id = azurerm_key_vault.kv_move.id
 
   lifecycle {
-    ignore_changes = [ content_type ]
+    ignore_changes = [content_type]
   }
+
+  tags = var.tags
 }
