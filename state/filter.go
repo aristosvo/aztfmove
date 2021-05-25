@@ -50,6 +50,7 @@ var resourcesOnlyMovedInTF = []string{
 	"azurerm_storage_container",
 	"azurerm_key_vault_secret",
 	"azurerm_storage_share",
+	"azurerm_subnet_network_security_group_association",
 }
 
 var resourcesNotSupportedInAzure = []string{
