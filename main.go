@@ -143,6 +143,9 @@ func validateInput() {
 }
 
 func printNotSupported(terraformIDs []string) {
+	if len(terraformIDs) == 0 {
+		return
+	}
 	fmt.Print(Warn("\nResources not supported for movement:\n"))
 	for _, id := range terraformIDs {
 		fmt.Println(" -", id)
