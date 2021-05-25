@@ -47,7 +47,7 @@ resource "azurerm_resource_group" "output-rg" {
 }
 
 resource "azurerm_storage_account" "sa-move" {
-  name                     = "samove${lower(random_password.sa-postfix.result)}"
+  name                     = "samove${lower(nonsensitive(random_password.sa-postfix.result))}"
   resource_group_name      = azurerm_resource_group.input-rg.name
   location                 = azurerm_resource_group.input-rg.location
   account_kind             = "StorageV2"
@@ -55,6 +55,10 @@ resource "azurerm_storage_account" "sa-move" {
   account_replication_type = "LRS"
 
   tags = var.tags
+
+  lifecycle {
+    ignore_changes = [secondary_blob_connection_string, secondary_location]
+  }
 }
 
 resource "azurerm_storage_container" "sc-move" {
