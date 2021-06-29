@@ -106,16 +106,8 @@ Congratulations! Resources are moved in Azure and corrected in Terraform.
 
 
 ## ToDo
-- [x] Rework the code in multiple packages instead of one file
-- [x] Introduce a verification step 
-- [x] Introduce a dry-run option, which returns the commands to execute the operations yourself
-- [x] Colored output as default, `-no-color` flag is available to remove the formatting
-- [x] Documentation around authentication
-- [x] Support environments which require variables or variable files on import
-- [x] Unit tests
-- [x] Use [terratest](https://terratest.gruntwork.io) for AccTests against Azure
+- [ ] Use [terraform-exec](github.com/hashicorp/terraform-exec) instead of wrapping `terraform`
 - [ ] Multiple authentication options (ideally all options supported in the provider)
-- [ ] ~~Add an `-exclude` flag (trying to mimic flags of terraform, doesn't fit in that pattern)~~
 
 ## Licence
 
