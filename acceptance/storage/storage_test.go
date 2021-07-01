@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/aristosvo/aztfmove/acceptance"
-	"github.com/arschles/assert"
 	"github.com/gruntwork-io/terratest/modules/terraform"
 )
 
@@ -27,5 +26,7 @@ func TestStorage_Basic(t *testing.T) {
 	acceptance.Step(moveStorageBack, t)
 
 	exitCode := terraform.InitAndPlanWithExitCode(t, terraformOptions)
-	assert.Equal(t, exitCode, 0, "terraform plan exitcode")
+	if exitCode != 0 {
+		t.Fatalf("terraform plan exitcode %d, not %d", exitCode, 0)
+	}
 }

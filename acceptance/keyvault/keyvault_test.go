@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/aristosvo/aztfmove/acceptance"
-	"github.com/arschles/assert"
 	"github.com/gruntwork-io/terratest/modules/terraform"
 
 	externalip "github.com/glendc/go-external-ip"
@@ -34,7 +33,9 @@ func TestKeyVault_Basic(t *testing.T) {
 
 	terraformOptions.VarFiles = []string{"moved.tfvars"}
 	exitCode := terraform.InitAndPlanWithExitCode(t, terraformOptions)
-	assert.Equal(t, exitCode, 0, "terraform plan exitcode")
+	if exitCode != 0 {
+		t.Fatalf("terraform plan exitcode %d, not %d", exitCode, 0)
+	}
 	t.Log("Move validated")
 
 	moveKeyVaultBack := []string{"-resource-group=output-kv-rg", "-target-resource-group=input-kv-rg", "-var-file=create.tfvars", "-var", fmt.Sprintf("ip=%s", ipCIDR()), "-var", "test=123"}
@@ -42,7 +43,9 @@ func TestKeyVault_Basic(t *testing.T) {
 
 	terraformOptions.VarFiles = []string{"create.tfvars"}
 	exitCode = terraform.InitAndPlanWithExitCode(t, terraformOptions)
-	assert.Equal(t, exitCode, 0, "terraform plan exitcode")
+	if exitCode != 0 {
+		t.Fatalf("terraform plan exitcode %d, not %d", exitCode, 0)
+	}
 }
 
 func ipCIDR() string {
