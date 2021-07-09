@@ -51,6 +51,9 @@ var resourcesOnlyMovedInTF = []string{
 	"azurerm_key_vault_secret",
 	"azurerm_storage_share",
 	"azurerm_subnet_network_security_group_association",
+	"azurerm_mssql_database",
+	"azurerm_mssql_database_extended_auditing_policy",
+	"azurerm_sql_virtual_network_rule",
 }
 
 var resourcesNotSupportedInAzure = []string{
