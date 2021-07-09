@@ -45,19 +45,22 @@ func (ris ResourcesInstanceSummary) ToCorrectInTFState() map[string]string {
 }
 
 var resourcesOnlyMovedInTF = []string{
-	"azurerm_mysql_firewall_rule",
 	"azurerm_key_vault_access_policy",
-	"azurerm_storage_container",
 	"azurerm_key_vault_secret",
+	"azurerm_mssql_database",
+	"azurerm_mssql_database_extended_auditing_policy",
+	"azurerm_mysql_firewall_rule",
+	"azurerm_sql_firewall_rule",
+	"azurerm_storage_container",
 	"azurerm_storage_share",
 	"azurerm_subnet_network_security_group_association",
 }
 
 var resourcesNotSupportedInAzure = []string{
-	"azurerm_kubernetes_cluster",
-	"azurerm_resource_group",
 	"azurerm_client_config",
+	"azurerm_kubernetes_cluster",
 	"azurerm_monitor_diagnostic_setting",
+	"azurerm_resource_group",
 }
 
 func (tfstate TerraformState) Filter(resourceFilter, moduleFilter, resourceGroupFilter, sourceSubscriptionID, targetResourceGroup, targetSubscriptionID string) (resourceInstances ResourcesInstanceSummary, sourceResourceGroup string, err error) {
