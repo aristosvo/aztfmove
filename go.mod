@@ -8,5 +8,5 @@ require (
 	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
 	github.com/Azure/go-autorest/autorest/validation v0.3.1 // indirect
 	github.com/glendc/go-external-ip v0.0.0-20200601212049-c872357d968e
-	github.com/gruntwork-io/terratest v0.36.8
+	github.com/gruntwork-io/terratest v0.37.4
 )
