@@ -106,7 +106,7 @@ Congratulations! Resources are moved in Azure and corrected in Terraform.
 
 
 ## ToDo
-- [ ] Use [terraform-exec](github.com/hashicorp/terraform-exec) instead of wrapping `terraform`
+- [ ] Use [terraform-exec](https://github.com/hashicorp/terraform-exec) instead of wrapping `terraform`
 - [ ] Multiple authentication options (ideally all options supported in the provider)
 
 ## Licence

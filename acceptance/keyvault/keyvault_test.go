@@ -46,6 +46,8 @@ func TestKeyVault_Basic(t *testing.T) {
 	if exitCode != 0 {
 		t.Fatalf("terraform plan exitcode %d, not %d", exitCode, 0)
 	}
+
+	acceptance.Cleanup(t)
 }
 
 func ipCIDR() string {
