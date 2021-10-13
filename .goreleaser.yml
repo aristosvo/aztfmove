@@ -1,0 +1,7 @@
+changelog:
+  use: github
+
+  filters:
+    exclude:
+      - Merge pull request
+      - Merge branch
