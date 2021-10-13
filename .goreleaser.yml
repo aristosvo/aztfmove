@@ -5,3 +5,4 @@ changelog:
     exclude:
       - Merge pull request
       - Merge branch
+      - Bump
