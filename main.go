@@ -95,12 +95,30 @@ func main() {
 		os.Exit(1)
 	}
 
+	printBlockingMovement(resourceInstances.BlockingMovement())
 	printNotSupported(resourceInstances.NotSupported())
 	printToMoveInAzure(resourceInstances.MovableOnAzure())
 	printToCorrectInTF(resourceInstances.ToCorrectInTFState())
 
 	if !*dryRunFlag && !*autoApproveFlag {
 		askConfirmation()
+	}
+
+	if tfIDsToRemove, azureIDsToDelete := resourceInstances.BlockingMovement(); len(azureIDsToDelete) > 0 {
+		fmt.Print(Azure("\nBlocking resources will be deleted in Azure."))
+		if *dryRunFlag {
+			fmt.Print(" (dry-run!)")
+		}
+		deleteAzureResources(azureIDsToDelete, sourceResourceGroup, *sourceSubscriptionFlag)
+		fmt.Print(Good("\n\nBlocking resources are deleted in Azure."))
+		if *dryRunFlag {
+			fmt.Print(" (dry-run!)")
+		}
+		fmt.Print(Terraform("\n\nResources in Terraform state will be removed:"))
+		if *dryRunFlag {
+			fmt.Print(" (dry-run!)")
+		}
+		removeTerraformResources(tfIDsToRemove)
 	}
 
 	if azureIDs := resourceInstances.MovableOnAzure(); len(azureIDs) > 0 {
@@ -139,6 +157,16 @@ func validateInput() {
 	if *sourceSubscriptionFlag == "" {
 		fmt.Printf("%s No resource subscription known, specify environment variable ARM_SUBSCRIPTION_ID or flag -subscription-id\n", Fata("Error:"))
 		os.Exit(1)
+	}
+}
+
+func printBlockingMovement(terraformIDs []string, azureIDs []string) {
+	if len(terraformIDs) == 0 {
+		return
+	}
+	fmt.Print(Warn("\nResources blocking movement of other resources:\n"))
+	for _, id := range terraformIDs {
+		fmt.Println(" -", id)
 	}
 }
 
@@ -188,6 +216,38 @@ func askConfirmation() {
 	}
 }
 
+func deleteAzureResources(azureIDs []string, sourceResourceGroup string, sourceSubscriptionID string) {
+	if *dryRunFlag {
+		fmt.Println("\nThe Azure delete actions when \"-dry-run=false\" are similar to the scripted action below:")
+		fmt.Printf(AzureCLI("  az resource delete --ids '%s'"), strings.Join(azureIDs, " "))
+
+		return
+	}
+
+	resourceClient := resources.NewClient(sourceSubscriptionID)
+	authorizer, err := auth.NewAuthorizerFromCLI()
+	if err == nil {
+		resourceClient.Authorizer = authorizer
+	}
+	for _, id := range azureIDs {
+		ctx, cancel := context.WithTimeout(context.Background(), 60*60*time.Second)
+		defer cancel()
+
+		// TODO: API Version hardcoded as only one category yet implemented
+		future, err := resourceClient.DeleteByID(ctx, id, "2021-02-01")
+		if err != nil {
+			fmt.Printf("\n%s cannot delete resources: %v", Fata("Error:"), err)
+			os.Exit(1)
+		}
+		err = future.WaitForCompletionRef(ctx, resourceClient.Client)
+		if err != nil {
+			fmt.Printf("\n%s cannot get the delete future response: %v", Fata("Error:"), err)
+			os.Exit(1)
+		}
+	}
+
+}
+
 func moveAzureResources(azureIDs []string, sourceResourceGroup string, sourceSubscriptionID string, targetSubscriptionID string, targetResourceGroup string) {
 	if *dryRunFlag {
 		fmt.Println("\nThe Azure move actions when \"-dry-run=false\" are similar to the scripted action below:")
@@ -220,6 +280,29 @@ func moveAzureResources(azureIDs []string, sourceResourceGroup string, sourceSub
 	if err != nil {
 		fmt.Printf("\n%s cannot get the move future response: %v", Fata("Error:"), err)
 		os.Exit(1)
+	}
+}
+
+func removeTerraformResources(tfIDs []string) {
+	if *dryRunFlag {
+		fmt.Println("\nThe Terraform actions taken when \"-dry-run=false\" are similar to the scripted actions below:")
+		for _, tfID := range tfIDs {
+			fmt.Println(" #", tfID)
+			fmt.Printf(TerraformCLI("  terraform state rm '%s'\n"), tfID)
+		}
+		return
+	}
+
+	for _, tfID := range tfIDs {
+		fmt.Println("\n -", tfID)
+
+		output, err := state.RemoveInstance(tfID)
+		if err != nil {
+			fmt.Printf("\n%s terraform resource is not removed, %v\n", Fata("Error:"), err)
+			fmt.Println(" ", output)
+			os.Exit(1)
+		}
+		fmt.Printf("\t✓ Removed")
 	}
 }
 

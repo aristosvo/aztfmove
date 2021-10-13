@@ -24,10 +24,22 @@ func (ris ResourcesInstanceSummary) NotSupported() []string {
 	return IDs
 }
 
+func (ris ResourcesInstanceSummary) BlockingMovement() ([]string, []string) {
+	var tfIDs []string
+	var azureIDs []string
+	for _, r := range ris {
+		if contains(resourcesBlockingMovement, r.Type) {
+			tfIDs = append(tfIDs, r.TerraformID)
+			azureIDs = append(azureIDs, r.AzureID)
+		}
+	}
+	return tfIDs, azureIDs
+}
+
 func (ris ResourcesInstanceSummary) MovableOnAzure() []string {
 	var IDs []string
 	for _, r := range ris {
-		if !contains(resourcesNotSupportedInAzure, r.Type) && !contains(resourcesOnlyMovedInTF, r.Type) {
+		if !contains(resourcesNotSupportedInAzure, r.Type) && !contains(resourcesOnlyMovedInTF, r.Type) && !contains(resourcesBlockingMovement, r.Type) {
 			IDs = append(IDs, r.AzureID)
 		}
 	}
@@ -37,7 +49,7 @@ func (ris ResourcesInstanceSummary) MovableOnAzure() []string {
 func (ris ResourcesInstanceSummary) ToCorrectInTFState() map[string]string {
 	IDs := make(map[string]string)
 	for _, r := range ris {
-		if !contains(resourcesNotSupportedInAzure, r.Type) {
+		if !contains(resourcesNotSupportedInAzure, r.Type) && !contains(resourcesBlockingMovement, r.Type) {
 			IDs[r.TerraformID] = r.FutureAzureID
 		}
 	}
@@ -45,6 +57,8 @@ func (ris ResourcesInstanceSummary) ToCorrectInTFState() map[string]string {
 }
 
 var resourcesOnlyMovedInTF = []string{
+	"azurerm_app_service_slot",
+	"azurerm_app_service_slot_virtual_network_swift_connection",
 	"azurerm_key_vault_access_policy",
 	"azurerm_key_vault_secret",
 	"azurerm_mssql_database",
@@ -53,13 +67,20 @@ var resourcesOnlyMovedInTF = []string{
 	"azurerm_sql_firewall_rule",
 	"azurerm_storage_container",
 	"azurerm_storage_share",
+	"azurerm_subnet",
 	"azurerm_subnet_network_security_group_association",
+}
+
+var resourcesBlockingMovement = []string{
+	"azurerm_app_service_virtual_network_swift_connection",
+	"azurerm_app_service_slot_virtual_network_swift_connection",
 }
 
 var resourcesNotSupportedInAzure = []string{
 	"azurerm_client_config",
 	"azurerm_kubernetes_cluster",
 	"azurerm_monitor_diagnostic_setting",
+	"azurerm_monitor_metric_alert",
 	"azurerm_resource_group",
 }
 
@@ -93,7 +114,7 @@ func (tfstate TerraformState) Filter(resourceFilter, moduleFilter, resourceGroup
 			}
 
 			instanceResourceGroup := instance.ResourceGroup()
-			if instanceResourceGroup == "" && !contains(resourcesNotSupportedInAzure, r.Type) {
+			if instanceResourceGroup == "" && !contains(resourcesNotSupportedInAzure, r.Type) && !contains(resourcesBlockingMovement, r.Type) {
 				err = fmt.Errorf("resource group is not found for %s. Please file a PR on https://github.com/aristosvo/aztfmove and mention this ID: %s", instance.ID(r), instance.ID(r))
 				return nil, "", err
 			}
@@ -104,15 +125,15 @@ func (tfstate TerraformState) Filter(resourceFilter, moduleFilter, resourceGroup
 			}
 
 			// Only one resource group is supported at the same time
-			if resourceGroup == "*" && !contains(resourcesNotSupportedInAzure, r.Type) {
+			if resourceGroup == "*" && !contains(resourcesNotSupportedInAzure, r.Type) && !contains(resourcesBlockingMovement, r.Type) {
 				resourceGroup = instanceResourceGroup
-			} else if resourceGroup != instanceResourceGroup && !contains(resourcesNotSupportedInAzure, r.Type) {
+			} else if resourceGroup != instanceResourceGroup && !contains(resourcesNotSupportedInAzure, r.Type) && !contains(resourcesBlockingMovement, r.Type) {
 
 				err = fmt.Errorf("multiple resource groups found within your selection, unable to start moving. Resource groups found: [%s, %s]", resourceGroup, instanceResourceGroup)
 				return nil, "", err
 			}
 
-			if instance.SubscriptionID() == targetSubscriptionID && instanceResourceGroup == targetResourceGroup && !contains(resourcesNotSupportedInAzure, r.Type) {
+			if instance.SubscriptionID() == targetSubscriptionID && instanceResourceGroup == targetResourceGroup && !contains(resourcesNotSupportedInAzure, r.Type) && !contains(resourcesBlockingMovement, r.Type) {
 				err = fmt.Errorf("the selected resource %s is already in the target resource group", instance.ID(r))
 				return nil, "", err
 			}
