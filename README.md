@@ -2,7 +2,7 @@
 Simple tool to move Azure resources based on Terraform state
 
 ## Goal
-It is sometimes inevitable to move Azure resources to a new subscription or to a different resource group. This means often a painfull transition when all resources are already in Terraform.
+It is sometimes inevitable to move Azure resources to a new subscription or to a different resource group within an Azure Tenant. This means often a painfull transition when all resources are already in Terraform.
 
 To combine both the joy of Terraform and the movement capabilities within Azure, this tool gives you the capabilities to migrate quick and easy.
 
