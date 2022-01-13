@@ -24,6 +24,16 @@ func (ris ResourcesInstanceSummary) NotSupported() []string {
 	return IDs
 }
 
+func (ris ResourcesInstanceSummary) NoMovementNeeded() []string {
+	var IDs []string
+	for _, r := range ris {
+		if contains(resourcesNotNeedingMovement, r.Type) {
+			IDs = append(IDs, r.TerraformID)
+		}
+	}
+	return IDs
+}
+
 func (ris ResourcesInstanceSummary) BlockingMovement() ([]string, []string) {
 	var tfIDs []string
 	var azureIDs []string
@@ -39,7 +49,7 @@ func (ris ResourcesInstanceSummary) BlockingMovement() ([]string, []string) {
 func (ris ResourcesInstanceSummary) MovableOnAzure() []string {
 	var IDs []string
 	for _, r := range ris {
-		if !contains(resourcesNotSupportedInAzure, r.Type) && !contains(resourcesOnlyMovedInTF, r.Type) && !contains(resourcesBlockingMovement, r.Type) {
+		if !contains(resourcesNotSupportedInAzure, r.Type) && !contains(resourcesOnlyMovedInTF, r.Type) && !contains(resourcesBlockingMovement, r.Type) && !contains(resourcesNotNeedingMovement, r.Type) {
 			IDs = append(IDs, r.AzureID)
 		}
 	}
@@ -49,7 +59,7 @@ func (ris ResourcesInstanceSummary) MovableOnAzure() []string {
 func (ris ResourcesInstanceSummary) ToCorrectInTFState() map[string]string {
 	IDs := make(map[string]string)
 	for _, r := range ris {
-		if !contains(resourcesNotSupportedInAzure, r.Type) && !contains(resourcesBlockingMovement, r.Type) {
+		if !contains(resourcesNotSupportedInAzure, r.Type) && !contains(resourcesBlockingMovement, r.Type) && !contains(resourcesNotNeedingMovement, r.Type) {
 			IDs[r.TerraformID] = r.FutureAzureID
 		}
 	}
@@ -84,6 +94,10 @@ var resourcesNotSupportedInAzure = []string{
 	"azurerm_resource_group",
 }
 
+var resourcesNotNeedingMovement = []string{
+	"azurerm_storage_share_file", // lacks any reference to subscription/resource group and is a child resource, so no need to convert and/or move
+}
+
 func (tfstate TerraformState) Filter(resourceFilter, moduleFilter, resourceGroupFilter, sourceSubscriptionID, targetResourceGroup, targetSubscriptionID string) (resourceInstances ResourcesInstanceSummary, sourceResourceGroup string, err error) {
 	resourceGroup := resourceGroupFilter
 	for _, r := range tfstate.Resources {
@@ -98,6 +112,20 @@ func (tfstate TerraformState) Filter(resourceFilter, moduleFilter, resourceGroup
 
 		// second filter: module
 		if (moduleFilter != "" && moduleFilter != "*") && r.Module != moduleFilter {
+			continue
+		}
+
+		// third filter: resourcesNotNeedingMovement
+		if contains(resourcesNotNeedingMovement, r.Type) {
+			for _, instance := range r.Instances {
+				summary := ResourceInstanceSummary{
+					AzureID:       instance.Attributes.ID,
+					FutureAzureID: instance.Attributes.ID,
+					TerraformID:   instance.ID(r),
+					Type:          r.Type,
+				}
+				resourceInstances = append(resourceInstances, summary)
+			}
 			continue
 		}
 
