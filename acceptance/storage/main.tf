@@ -66,3 +66,15 @@ resource "azurerm_storage_container" "sc-move" {
   storage_account_name  = azurerm_storage_account.sa-move.name
   container_access_type = "private"
 }
+
+resource "azurerm_storage_share" "share_move" {
+  name                 = "sharemove"
+  storage_account_name = azurerm_storage_account.sa-move.name
+  quota                = 50
+}
+
+resource "azurerm_storage_share_file" "file_move" {
+  name             = "my-awesome-content.txt"
+  storage_share_id = azurerm_storage_share.share_move.id
+  source           = "some-local-file.txt"
+}

@@ -97,6 +97,7 @@ func main() {
 
 	printBlockingMovement(resourceInstances.BlockingMovement())
 	printNotSupported(resourceInstances.NotSupported())
+	printNotNeeded(resourceInstances.NoMovementNeeded())
 	printToMoveInAzure(resourceInstances.MovableOnAzure())
 	printToCorrectInTF(resourceInstances.ToCorrectInTFState())
 
@@ -175,6 +176,16 @@ func printNotSupported(terraformIDs []string) {
 		return
 	}
 	fmt.Print(Warn("\nResources not supported for movement:\n"))
+	for _, id := range terraformIDs {
+		fmt.Println(" -", id)
+	}
+}
+
+func printNotNeeded(terraformIDs []string) {
+	if len(terraformIDs) == 0 {
+		return
+	}
+	fmt.Print(Good("\nResources with no need for movement:\n (mostly child resources)\n"))
 	for _, id := range terraformIDs {
 		fmt.Println(" -", id)
 	}

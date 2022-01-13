@@ -1,4 +1,6 @@
+//go:build acctest
 // +build acctest
+
 // NOTE: We use build tags to differentiate acceptance testing
 
 package test
