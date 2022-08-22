@@ -1,6 +1,6 @@
 module github.com/aristosvo/aztfmove
 
-go 1.17
+go 1.19
 
 require (
 	github.com/Azure/azure-sdk-for-go v61.1.0+incompatible
