@@ -6,7 +6,7 @@ require (
 	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.12
 	github.com/glendc/go-external-ip v0.0.0-20200601212049-c872357d968e
-	github.com/gruntwork-io/terratest v0.41.12
+	github.com/gruntwork-io/terratest v0.41.15
 )
 
 require (
@@ -58,11 +58,11 @@ require (
 	github.com/ulikunitz/xz v0.5.10 // indirect
 	github.com/zclconf/go-cty v1.9.1 // indirect
 	go.opencensus.io v0.24.0 // indirect
-	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3 // indirect
-	golang.org/x/net v0.1.0 // indirect
+	golang.org/x/crypto v0.1.0 // indirect
+	golang.org/x/net v0.7.0 // indirect
 	golang.org/x/oauth2 v0.1.0 // indirect
-	golang.org/x/sys v0.1.0 // indirect
-	golang.org/x/text v0.4.0 // indirect
+	golang.org/x/sys v0.5.0 // indirect
+	golang.org/x/text v0.7.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/api v0.103.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
